@@ -1,5 +1,5 @@
 import pandas as pd
-
+import os
 
 def get_labels():
     filepath = 'data/Data_Entry_2017_v2020.csv'
@@ -12,7 +12,7 @@ def get_labels():
     df = df.dropna(subset=['Finding Labels']) # Drop rows with no labels
     return df
 
-def separate_labels(s):
+def label_string_to_multi_hot(s):
     labels = ["Atelectasis", "Consolidation", "Infiltration", "Pneumothorax", "Edema", "Emphysema", "Fibrosis", "Effusion", "Pneumonia", "Pleural_Thickening", "Cardiomegaly", "Nodule", "Mass", "Hernia"]
     label_dict = {label: i for i, label in enumerate(labels)}
 
@@ -26,3 +26,20 @@ def separate_labels(s):
         else:
             print(f"Unknown label: {label}")
     return multi_class
+
+def get_num_patients_images(num_image_folders):
+    # get the number of patients and images from the filenames
+    # necessary because Data_Entry_2017_v2020.csv does not divide by folders
+    num_patients = 0
+    num_images = 0
+
+    for i in range(1, num_image_folders+1):
+        folder_path = f'data/images/images_{i:03d}/images'
+        image_filenames = pd.Series(os.listdir(folder_path), name='Image Index')
+        num_images += len(image_filenames)
+        for filename in image_filenames:
+            patient_id = filename.split('_')[0]
+            if int(patient_id) > num_patients:
+                num_patients = int(patient_id)
+
+    return num_patients, num_images
