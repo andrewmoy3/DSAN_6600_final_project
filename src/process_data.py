@@ -3,6 +3,11 @@ import time
 import os
 
 def get_labels():
+    """
+    Reads the CSV file containing the image labels and image names.
+
+    Returns: Pandas DataFrame 
+    """
     filepath = 'data/Data_Entry_2017_v2020.csv'
     df = pd.read_csv(filepath)
 
@@ -14,6 +19,13 @@ def get_labels():
     return df
 
 def label_string_to_multi_hot(s):
+    """
+    Converts a single string of labels separated by '|' into a multi-hot encoded list.
+
+    Argument: String of labels separated by '|'
+
+    Returns: Multi-hot encoded list representing the presence of each label
+    """
     labels = ["Atelectasis", "Consolidation", "Infiltration", "Pneumothorax", "Edema", "Emphysema", "Fibrosis", "Effusion", "Pneumonia", "Pleural_Thickening", "Cardiomegaly", "Nodule", "Mass", "Hernia"]
     label_dict = {label: i for i, label in enumerate(labels)}
 
@@ -29,8 +41,13 @@ def label_string_to_multi_hot(s):
     return multi_class
 
 def get_num_patients_images(num_image_folders):
-    # get the number of patients and images from the filenames
-    # necessary because Data_Entry_2017_v2020.csv does not divide by folders
+    """
+    Counts the number of unique patients and total images in the specified number of image folders. While the CSV file is treated as ground truth, this function counts images directly from the folders because we do not always want to process all 12 folders, and the CSV does not specify which folder an image is in.
+
+    Argument: Number of image folders to process 
+
+    Returns: Tuple (number of unique patients, total number of images)
+    """
     num_patients = 0
     num_images = 0
 
@@ -46,7 +63,19 @@ def get_num_patients_images(num_image_folders):
     return num_patients, num_images
 
 def ids_to_images(ids, labels_df, num_image_folders):
-    start = time.perf_counter()
+    """
+    Maps patient IDs to their corresponding image file paths and multi-hot encoded labels.
+
+    Arguments:
+    - ids: List of patient IDs
+    - labels_df: DataFrame containing image labels and metadata
+    - num_image_folders: Number of image folders to process
+
+    Returns: List of tuples corresponding to each patient id (image_path, multi-hot label of disease in that image)
+    """
+    
+    # Create a list of length 'num_image_folders' 
+    # Each element is a set of the patient IDs in that folder
     folders = []
     for i in range(1, num_image_folders+1):
         folder_path = f'data/images/images_{i:03d}/images'
@@ -57,9 +86,10 @@ def ids_to_images(ids, labels_df, num_image_folders):
             folder_ids.add(patient_id)
         folders.append(folder_ids)
 
+    # Helper function to quickly look up which folder a patient ID is in
     def patient_id_to_folder_number(id):
         for i, id_set in enumerate(folders, start=1):
-            if patient_id in id_set:
+            if id in id_set:
                 return i
         return 0
 
@@ -85,8 +115,6 @@ def ids_to_images(ids, labels_df, num_image_folders):
             label = label_string_to_multi_hot(label_str)
             data.append((img_path, label))
     
-    end = time.perf_counter()
-    # print(f"time = {end - start}")
     return data
 
     
