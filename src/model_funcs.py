@@ -109,7 +109,7 @@ def load_model_parameters(model, model_type, filename):
     model.load_state_dict(torch.load(path + filename + ".pth"))
     return model
 
-def save_model_parameters(model, model_type, filename):
+def save_model_parameters(model, model_type=None, filename=""):
     """ 
     Save a trained model parameters into appropriate folders based on which model it is. 
 
@@ -122,6 +122,12 @@ def save_model_parameters(model, model_type, filename):
 
     Returns: None
     """
+    # make sure folders exist
+    os.makedirs("parameters/resnet/", exist_ok=True)
+    os.makedirs("parameters/imagenet/", exist_ok=True)
+    os.makedirs("parameters/custom_cnn/", exist_ok=True)
+    os.makedirs("parameters/custom_transformer/", exist_ok=True)
+
     if model_type == config.RESNET:
         path = "parameters/resnet/"
     elif model_type == config.IMAGENET:
@@ -133,6 +139,26 @@ def save_model_parameters(model, model_type, filename):
     else:
         raise ValueError("Model type is not recognized")
     
-    filename = filename
+    full_path = path + filename + ".pth"
 
-    torch.save(model.state_dict(), path + filename + ".pth")
+    # if file already exists, ask for confirmation to overwrite
+    import os
+    if os.path.exists(full_path):
+        response = input(f"File {full_path} already exists. Overwrite? You can choose another filename if n is selected (y/n): ")
+        if response.lower() != 'y':
+            new_filename = input("Enter new filename (without extension): ")
+            full_path = path + new_filename + ".pth"
+
+    torch.save(model.state_dict(), full_path)
+
+def model_statistics(probs, labels):
+    """
+    Computes model statistics such as accuracy, precision, recall, and F1-score.
+
+    Arguments:
+    - probs: Numpy array of predicted probabilities for each disease type
+    - labels: Numpy array of true multi-hot encoded labels
+
+    Returns: Dictionary of statistics
+    """
+    pass

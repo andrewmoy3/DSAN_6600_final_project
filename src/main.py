@@ -7,8 +7,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from torch_funcs import make_resnet, make_vit
-from model_funcs import train_model, evaluate_model
-from process_data import get_labels, label_string_to_multi_hot, get_num_patients_images, ids_to_images
+from model_funcs import train_model, evaluate_model, save_model_parameters, load_model_parameters
+from process_data import get_labels, label_string_to_multi_hot, get_num_patients_images, ids_to_images, model_statistics
 
 ###############################
 # NOTE: When processing data, "Data_Entry_2017_v2020.csv" is treated as the ground truth. It is assumed that the image folders contain all the images listed in the CSV, and no others.
@@ -37,22 +37,37 @@ train_data = ImageDataset(ids_to_images(train_patients, labels_df, config.NUM_FO
 val_data = ImageDataset(ids_to_images(val_patients, labels_df, config.NUM_FOLDERS))
 test_data = ImageDataset(ids_to_images(test_patients, labels_df, config.NUM_FOLDERS))
 
-
 train_loader = DataLoader(train_data, batch_size=config.BATCH_SIZE, shuffle=True)
 val_loader = DataLoader(val_data, batch_size=config.BATCH_SIZE)
 test_loader = DataLoader(test_data, batch_size=config.BATCH_SIZE)
 
-# CNN
-num_classes = 14  # number of labels of disease
-cnn = make_resnet(num_classes)
-cnn = train_model(cnn, train_loader, val_loader, num_epochs=config.NUM_EPOCHS, lr=config.LEARNING_RATE)
-# save the trained model parameters
-torch.save(cnn.state_dict(), 'cnn_model.pth')
+# Choose model based on config.py
+if config.MODEL == config.RESNET:
+    print("Using ResNet model")
+    model = make_resnet(config.NUM_CLASSES)
+elif config.MODEL == config.IMAGENET:
+    print("Using ImageNet model")
+    model = load_model_parameters(make_resnet(config.NUM_CLASSES), config.IMAGENET, "imagenet_model")
+elif config.MODEL == config.CUSTOM_CNN:
+    print("Using Custom CNN model")
+    hidden_size = 128
+    num_layers = 2
+    # cnn = load_model_parameters(CNN(vocab_size, hidden_size, num_layers), config.CUSTOM_CNN, "custom_cnn_model")  
+    pass   
+elif config.MODEL == config.CUSTOM_TRANS:
+    print("Using Custom Transformer model")
+    # to be implemented
+    pass
+
+model = train_model(model, train_loader, val_loader, num_epochs=config.NUM_EPOCHS, lr=config.LEARNING_RATE)
+
+# Save trained model parameters
+save_model_parameters(model, model_type=config.RESNET, filename=config.MODEL_NAME)
+
+# Get predicted probabilities and true labels on test set
+probs, labels = evaluate_model(model, test_loader)
+
+# Get model statistics based on its predictions of test set
+stats = model_statistics(probs, labels) 
 
 
-probs, labels = evaluate_model(cnn, test_loader)
-
-
-# Vision Transformer
-vit = make_vit(num_classes)
-# vit = train_model(vit, train_loader, val_loader, num_epochs=10, lr=1e-4)
