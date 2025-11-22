@@ -7,8 +7,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from torch_funcs import make_resnet, make_vit
-from model_funcs import train_model, evaluate_model, save_model_parameters, load_model_parameters
-from process_data import get_labels, label_string_to_multi_hot, get_num_patients_images, ids_to_images, model_statistics
+from model_funcs import train_model, evaluate_model, save_model_parameters, load_model_parameters, model_statistics
+from process_data import get_labels, label_string_to_multi_hot, get_num_patients_images, ids_to_images
 
 ###############################
 # NOTE: When processing data, "Data_Entry_2017_v2020.csv" is treated as the ground truth. It is assumed that the image folders contain all the images listed in the CSV, and no others.
@@ -62,7 +62,7 @@ elif config.MODEL == config.CUSTOM_TRANS:
 model = train_model(model, train_loader, val_loader, num_epochs=config.NUM_EPOCHS, lr=config.LEARNING_RATE)
 
 # Save trained model parameters
-save_model_parameters(model, model_type=config.RESNET, filename=config.MODEL_NAME)
+save_model_parameters(model, model_type=config.MODEL, filename=config.MODEL_NAME)
 
 # Get predicted probabilities and true labels on test set
 probs, labels = evaluate_model(model, test_loader)
