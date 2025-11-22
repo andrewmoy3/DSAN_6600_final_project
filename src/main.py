@@ -64,7 +64,7 @@ model = train_model(model, train_loader, val_loader, num_epochs=config.NUM_EPOCH
 # Save trained model parameters
 save_model_parameters(model, model_type=config.MODEL, filename=config.MODEL_NAME)
 
-# Get predicted probabilities and true labels on test set
+# Get predicted probabiities and true labels on test set
 probs, labels = evaluate_model(model, test_loader)
 
 # Get model statistics based on its predictions of test set
