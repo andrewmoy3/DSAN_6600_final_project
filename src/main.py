@@ -59,15 +59,25 @@ elif config.MODEL == config.CUSTOM_TRANS:
     # to be implemented
     pass
 
-model = train_model(model, train_loader, val_loader, num_epochs=config.NUM_EPOCHS, lr=config.LEARNING_RATE)
+# ----------------- UPDATED TRAINING CALL -----------------
+print("Starting Training...")
+model, train_losses, val_losses = train_model(
+    model, 
+    train_loader, 
+    val_loader, 
+    num_epochs=config.NUM_EPOCHS, 
+    lr=config.LEARNING_RATE
+)
 
 # Save trained model parameters
 save_model_parameters(model, model_type=config.MODEL, filename=config.MODEL_NAME)
 
 # Get predicted probabiities and true labels on test set
+print("Evaluating on Test Set...")
 probs, labels = evaluate_model(model, test_loader)
 
-# Get model statistics based on its predictions of test set
-stats = model_statistics(probs, labels) 
+# ----------------- UPDATED STATISTICS CALL -----------------
+# Now passing the loss histories
+stats = model_statistics(probs, labels, train_losses, val_losses)
 
 
