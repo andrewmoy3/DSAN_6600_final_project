@@ -70,7 +70,7 @@ def ids_to_images(ids, labels_df, num_image_folders):
     subset_df = labels_df[labels_df['Patient ID'].isin(ids)]
     
     # Create a mapping of Image Index -> Folder Path
-    # (You only need to build this map once, effectively)
+    # (only need to build this map once, effectively)
     image_path_map = {}
     for i in range(1, num_image_folders + 1):
         folder_path = f'data/images/images_{i:03d}/images'
