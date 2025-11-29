@@ -31,28 +31,31 @@ class ImageDataset(Dataset):
 
 # Define a custom CNN as a class inheriting from nn.Module
 class CNN(nn.Module):
-    def __init__(self, vocab_size, hidden_size, num_layers):
+    def __init__(self, num_classes): # removed vocab_size/lstm args
         super(CNN, self).__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        # embed character indices
-        self.embedding = nn.Embedding(vocab_size, hidden_size)
-        # feed into LSTM
-        self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers, batch_first=True)
-        # feed h nodes into linear layer, output character
-        self.fc = nn.Linear(hidden_size, vocab_size)
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        )
+        # Calculate flattened size: 224 -> 112 -> 56 -> 28
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(128 * 28 * 28, 512),
+            nn.ReLU(),
+            nn.Linear(512, num_classes)
+        )
 
-    def forward(self, x, hidden=None):
-        x = self.embedding(x)
-        # feed character embeddings into LSTM
-        out, hidden = self.lstm(x.float(), hidden)
-        # hidden cell units and lstm cell states at each time step
-            # (layers*batches*hidden_size)  
-        # out shape (batch_size, seq_len, hidden_size)
-        # feed into linear layer
-        out = self.fc(out)
-        # out shape (batch_size, seq_len, vocab_size)
-        return out, hidden
+    def forward(self, x):
+        x = self.features(x)
+        x = self.classifier(x)
+        return x
 
 import torchvision
 from torchvision.models import resnet50
