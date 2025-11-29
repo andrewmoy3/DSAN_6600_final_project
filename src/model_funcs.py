@@ -128,7 +128,7 @@ def load_model_parameters(model, model_type, filename):
     model.load_state_dict(torch.load(path + filename + ".pth"))
     return model
 
-def save_model_parameters(model, model_type=None, filename=""):
+def save_model_parameters(model):
     """ 
     Save a trained model parameters into appropriate folders based on which model it is. 
 
@@ -141,6 +141,8 @@ def save_model_parameters(model, model_type=None, filename=""):
 
     Returns: None
     """
+    model_type = config.MODEL
+
     # make sure folders exist
     os.makedirs("parameters/resnet/", exist_ok=True)
     os.makedirs("parameters/imagenet/", exist_ok=True)
@@ -158,7 +160,7 @@ def save_model_parameters(model, model_type=None, filename=""):
     else:
         raise ValueError("Model type is not recognized")
     
-    full_path = path + filename + ".pth"
+    full_path = path + config.MODEL_NAME + ".pth"
 
     # if file already exists, ask for confirmation to overwrite
     if os.path.exists(full_path):
@@ -181,6 +183,24 @@ def model_statistics(probs, labels, train_losses=None, val_losses=None):
     - train_losses: List of training losses per epoch
     - val_losses: List of validation losses per epoch
     """
+    model_type = config.MODEL
+
+    # make sure folders exist
+    os.makedirs("parameters/resnet/", exist_ok=True)
+    os.makedirs("parameters/imagenet/", exist_ok=True)
+    os.makedirs("parameters/custom_cnn/", exist_ok=True)
+    os.makedirs("parameters/custom_transformer/", exist_ok=True)
+
+    if model_type == config.RESNET:
+        path = "plots/resnet/"
+    elif model_type == config.IMAGENET:
+        path = "plots/imagenet/"
+    elif model_type == config.CUSTOM_CNN:
+        path = "plots/custom_cnn/"
+    elif model_type == config.CUSTOM_TRANS:
+        path = "plots/custom_transformer/"
+    else:
+        raise ValueError("Model type is not recognized")
     # 1. Threshold probabilities to get binary predictions (0 or 1)
     threshold = 0.5
     preds = (probs > threshold).astype(int)
@@ -211,8 +231,8 @@ def model_statistics(probs, labels, train_losses=None, val_losses=None):
         plt.ylabel('Loss (BCE)')
         plt.legend()
         plt.grid(True)
-        plt.savefig('training_loss_curve.png')
-        print("Saved loss curve to 'training_loss_curve.png'")
+        plt.savefig(path + config.MODEL_NAME + '_training_loss_curve.png')
+        print(f"Saved loss curve to '{path + config.MODEL_NAME + '_training_loss_curve.png'}'")
         plt.close()
 
     # 5. Multi-label Confusion Matrix
@@ -237,8 +257,8 @@ def model_statistics(probs, labels, train_losses=None, val_losses=None):
             ax.axis('off') # Hide extra subplots
 
     plt.tight_layout()
-    plt.savefig('confusion_matrices.png')
-    print("Saved confusion matrices to 'confusion_matrices.png'")
-    plt.close()
+    plt.savefig(path + config.MODEL_NAME + '_confusion_matrices.png')
+    print(f"Saved confusion matrices to '{path + config.MODEL_NAME + '_confusion_matrices.png'}'")
+    plt.close() 
     
     return preds

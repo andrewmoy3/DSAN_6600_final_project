@@ -70,7 +70,7 @@ model, train_losses, val_losses = train_model(
 )
 
 # Save trained model parameters
-save_model_parameters(model, model_type=config.MODEL, filename=config.MODEL_NAME)
+save_model_parameters(model)
 
 # Get predicted probabiities and true labels on test set
 print("Evaluating on Test Set...")
