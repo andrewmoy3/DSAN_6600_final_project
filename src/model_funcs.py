@@ -3,6 +3,7 @@ import time
 import torch 
 import torch.nn as nn
 import config
+import torch.nn.functional as F
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,6 +19,53 @@ CLASS_NAMES = ["Atelectasis", "Consolidation", "Infiltration", "Pneumothorax", "
                "Emphysema", "Fibrosis", "Effusion", "Pneumonia", "Pleural_Thickening", 
                "Cardiomegaly", "Nodule", "Mass", "Hernia"]
 
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=0.25, gamma=2.0, reduction='mean'):
+        """
+        Multi-label Focal Loss for sigmoid outputs.
+        Args:
+            alpha (float): balancing factor for positives (default 0.25)
+            gamma (float): focusing parameter (default 2)
+            reduction: 'none' | 'mean' | 'sum'
+        """
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, logits, targets):
+        """
+        logits: raw model outputs of shape (batch, num_classes)
+        targets: binary multi-hot labels of same shape
+        """
+        # Sigmoid + CE but computed manually for numerical stability
+        bce_loss = F.binary_cross_entropy_with_logits(
+            logits,
+            targets,
+            reduction='none'
+        )
+
+        # convert logits to probability
+        prob = torch.sigmoid(logits)
+
+        # p_t = p if y=1 else (1-p)
+        pt = prob * targets + (1 - prob) * (1 - targets)
+
+        # focal term
+        focal_weight = (1 - pt) ** self.gamma
+
+        # alpha balancing
+        alpha_weight = self.alpha * targets + (1 - self.alpha) * (1 - targets)
+
+        # final loss
+        loss = alpha_weight * focal_weight * bce_loss
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        return loss
+    
 def train_model(model, train_loader, val_loader, pos_weight_tensor, num_epochs=5, lr=1e-4):
     # Store loss history for plotting
     train_losses = []
@@ -42,8 +90,10 @@ def train_model(model, train_loader, val_loader, pos_weight_tensor, num_epochs=5
 
         val_loss /= len(val_loader.dataset)
         return val_loss
-
-    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor)     # multi-label
+    
+    criterion = FocalLoss(gamma=2, alpha=0.25)
+    # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor)     # multi-label
+    # criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=config.WEIGHT_DECAY)
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
 
@@ -121,6 +171,7 @@ def evaluate_model(model, test_loader):
 
             logits = model(imgs) # 14 raw scores, 1 for each disease
             probs = torch.sigmoid(logits) # convert to probabilities between 0 and 1
+            # print(probs)
 
             all_probs.append(probs.cpu())
             all_labels.append(labels.cpu())
@@ -201,7 +252,7 @@ def save_model_parameters(model):
 
 from sklearn.metrics import roc_auc_score, accuracy_score
 
-def model_statistics(probs, labels, train_losses=None, val_losses=None):
+def model_statistics(probs, labels, thresholds_vector, train_losses=None, val_losses=None):
     """
     Computes detailed statistics and saves plots.
     
@@ -232,11 +283,9 @@ def model_statistics(probs, labels, train_losses=None, val_losses=None):
 
     # 1. Threshold probabilities to get binary predictions (0 or 1)
     # threshold = 0.5
-    thresholds_vector = [0.4, 0.35, 0.3, 0.25, 0.3, 0.35, 0.3, 0.45, 0.25, 0.35, 0.4, 0.3, 0.35, 0.2]
+    # thresholds_vector = [0.4, 0.35, 0.3, 0.25, 0.3, 0.35, 0.3, 0.45, 0.25, 0.35, 0.4, 0.3, 0.35, 0.2]
 
-    preds = (probs > thresholds_vector).int()   # ONE LINE
-    print(preds)
-
+    preds = (probs > thresholds_vector)
 
     # write to text file
     with open(f'{path}{config.MODEL_NAME}.txt', 'w') as file:

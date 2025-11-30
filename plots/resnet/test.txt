@@ -4,24 +4,24 @@ MODEL EVALUATION REPORT
 ==============================
                     precision    recall  f1-score   support
 
-       Atelectasis       0.10      0.15      0.12        86
-     Consolidation       0.07      0.41      0.12        49
-      Infiltration       0.21      0.13      0.16       184
-      Pneumothorax       0.04      0.15      0.06        20
-             Edema       0.06      0.58      0.11        19
-         Emphysema       0.02      0.70      0.04        20
-          Fibrosis       0.04      1.00      0.08        38
-          Effusion       0.10      0.15      0.12        75
-         Pneumonia       0.00      0.00      0.00        17
-Pleural_Thickening       0.03      0.89      0.07        27
-      Cardiomegaly       0.03      1.00      0.05        26
-            Nodule       0.00      0.00      0.00        35
-              Mass       0.00      0.00      0.00        19
-            Hernia       0.00      1.00      0.01         3
+       Atelectasis       0.13      0.05      0.07       116
+     Consolidation       0.00      0.00      0.00        43
+      Infiltration       0.19      0.47      0.27       166
+      Pneumothorax       0.50      0.02      0.04        47
+             Edema       0.00      0.00      0.00        20
+         Emphysema       0.00      0.00      0.00        38
+          Fibrosis       1.00      0.03      0.06        35
+          Effusion       0.31      0.15      0.20       113
+         Pneumonia       0.00      0.00      0.00        16
+Pleural_Thickening       0.00      0.00      0.00        35
+      Cardiomegaly       0.00      0.00      0.00        64
+            Nodule       0.00      0.00      0.00        33
+              Mass       0.00      0.00      0.00        40
+            Hernia       0.00      0.00      0.00         2
 
-         micro avg       0.04      0.30      0.07       618
-         macro avg       0.05      0.44      0.07       618
-      weighted avg       0.10      0.30      0.10       618
-       samples avg       0.04      0.13      0.05       618
+         micro avg       0.19      0.13      0.16       768
+         macro avg       0.15      0.05      0.05       768
+      weighted avg       0.18      0.13      0.10       768
+       samples avg       0.08      0.06      0.06       768
 
-Macro Average ROC AUC: 0.5716
+Macro Average ROC AUC: 0.6471

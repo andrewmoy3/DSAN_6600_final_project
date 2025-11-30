@@ -112,6 +112,12 @@ def get_pos_weights(df):
     neg_counts = total - label_counts
     pos_weights = neg_counts / label_counts
 
+    # take sqrt to soften
+    # pos_weights = np.sqrt(pos_weights)
+    
+    # take log
+    pos_weights = np.log(pos_weights)
+
     pos_weight_tensor = torch.tensor(
         pos_weights, 
         dtype=torch.float32,

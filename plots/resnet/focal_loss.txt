@@ -1,0 +1,27 @@
+
+==============================
+MODEL EVALUATION REPORT
+==============================
+                    precision    recall  f1-score   support
+
+       Atelectasis       0.15      0.70      0.25       799
+     Consolidation       0.09      0.32      0.14       335
+      Infiltration       0.19      0.86      0.31      1284
+      Pneumothorax       0.13      0.48      0.21       424
+             Edema       0.07      0.24      0.11       144
+         Emphysema       0.07      0.18      0.10       215
+          Fibrosis       0.06      0.20      0.09       129
+          Effusion       0.19      0.83      0.31       832
+         Pneumonia       0.03      0.02      0.03        90
+Pleural_Thickening       0.08      0.23      0.12       252
+      Cardiomegaly       0.12      0.29      0.17       214
+            Nodule       0.09      0.35      0.14       505
+              Mass       0.10      0.39      0.16       421
+            Hernia       0.00      0.00      0.00        35
+
+         micro avg       0.15      0.57      0.23      5679
+         macro avg       0.10      0.36      0.15      5679
+      weighted avg       0.14      0.57      0.22      5679
+       samples avg       0.11      0.23      0.13      5679
+
+Macro Average ROC AUC: 0.7179

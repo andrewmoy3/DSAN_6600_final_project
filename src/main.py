@@ -80,6 +80,7 @@ probs, labels = evaluate_model(model, test_loader)
 
 # ----------------- UPDATED STATISTICS CALL -----------------
 # Now passing the loss histories
-stats = model_statistics(probs, labels, train_losses, val_losses)
+thresholds_vector = [0.2] * 14
+stats = model_statistics(probs, labels, thresholds_vector, train_losses, val_losses)
 
 
