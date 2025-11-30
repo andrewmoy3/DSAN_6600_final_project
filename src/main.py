@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from torch_funcs import make_resnet, make_vit
 from model_funcs import train_model, evaluate_model, save_model_parameters, load_model_parameters, model_statistics
-from process_data import get_labels, label_string_to_multi_hot, get_num_patients_images, ids_to_images
+from process_data import get_labels, label_string_to_multi_hot, get_num_patients_images, ids_to_images, get_pos_weights
 
 ###############################
 # NOTE: When processing data, "Data_Entry_2017_v2020.csv" is treated as the ground truth. It is assumed that the image folders contain all the images listed in the CSV, and no others.
@@ -17,6 +17,7 @@ from process_data import get_labels, label_string_to_multi_hot, get_num_patients
 labels_df = get_labels() # DataFrame with all relevant columns
 
 num_patients, num_images = get_num_patients_images(config.NUM_FOLDERS)
+pos_weight_tensor = get_pos_weights(labels_df)
 
 print(f"Number of patients: {num_patients}")
 print(f"Number of images: {num_images}")
@@ -28,8 +29,8 @@ assert n == num_patients, "Number of unique patients does not match number of pa
 random.shuffle(rand_patient_range)
 
 train_patients = rand_patient_range[0:int(n * 0.7)]
-val_patients = rand_patient_range[int(n * 0.7):int(n * 0.85)]
-test_patients = rand_patient_range[int(n * 0.85):]
+val_patients = rand_patient_range[int(n * 0.7):int(n * 0.8)]
+test_patients = rand_patient_range[int(n * 0.8):]
 
 # Create datasets of class ImageDataset
 # get list of (image_path, multi-hot label) tuples using helper function ids_to_images
@@ -65,6 +66,7 @@ model, train_losses, val_losses = train_model(
     model, 
     train_loader, 
     val_loader, 
+    pos_weight_tensor,
     num_epochs=config.NUM_EPOCHS, 
     lr=config.LEARNING_RATE
 )

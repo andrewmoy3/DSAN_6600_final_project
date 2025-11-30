@@ -67,6 +67,15 @@ from torchvision.models import vit_b_16
 def make_resnet(num_classes):
     model = resnet50(weights="IMAGENET1K_V2")
     model.fc = nn.Linear(model.fc.in_features, num_classes)
+
+    # Freeze pretrained parameters
+    for param in model.parameters():
+        param.requires_grad = False
+
+    for param in model.fc.parameters():
+        param.requires_grad = True
+    for param in model.layer4.parameters():
+        param.requires_grad = True
     return model
 
 def make_vit(num_classes):

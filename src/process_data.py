@@ -1,6 +1,8 @@
 import pandas as pd
 import time
 import os
+import numpy as np
+import torch
 
 def get_labels():
     """
@@ -93,4 +95,26 @@ def ids_to_images(ids, labels_df, num_image_folders):
             
     return data
 
+def get_pos_weights(df):
+    """
+    Get a torch tensor for the 14 diseases
+    Each disease is represented by a value, the number of negatives / the number of positives
+    Used to amplify importance of rare diseases and reduce false negatives
+    """
+    label_counts = [0] * 14    
+    for label in df["Finding Labels"]:
+        ohe_label = label_string_to_multi_hot(label)
+        for i in range(14):
+            label_counts[i] += ohe_label[i]
+    total = len(df)
     
+    label_counts = np.array(label_counts, dtype=float)
+    neg_counts = total - label_counts
+    pos_weights = neg_counts / label_counts
+
+    pos_weight_tensor = torch.tensor(
+        pos_weights, 
+        dtype=torch.float32,
+    )
+
+    return pos_weight_tensor

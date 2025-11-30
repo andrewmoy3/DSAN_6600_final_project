@@ -18,7 +18,7 @@ CLASS_NAMES = ["Atelectasis", "Consolidation", "Infiltration", "Pneumothorax", "
                "Emphysema", "Fibrosis", "Effusion", "Pneumonia", "Pleural_Thickening", 
                "Cardiomegaly", "Nodule", "Mass", "Hernia"]
 
-def train_model(model, train_loader, val_loader, num_epochs=5, lr=1e-4):
+def train_model(model, train_loader, val_loader, pos_weight_tensor, num_epochs=5, lr=1e-4):
     # Store loss history for plotting
     train_losses = []
     val_losses = []
@@ -27,6 +27,7 @@ def train_model(model, train_loader, val_loader, num_epochs=5, lr=1e-4):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # model = model.to(device)
     model = model.to(device, memory_format=torch.channels_last)
+    pos_weight_tensor = pos_weight_tensor.to(device)
 
 
     def validation_loss():
@@ -42,7 +43,7 @@ def train_model(model, train_loader, val_loader, num_epochs=5, lr=1e-4):
         val_loss /= len(val_loader.dataset)
         return val_loss
 
-    criterion = nn.BCEWithLogitsLoss()     # multi-label
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor)     # multi-label
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=config.WEIGHT_DECAY)
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
 
@@ -228,25 +229,33 @@ def model_statistics(probs, labels, train_losses=None, val_losses=None):
         path = "plots/custom_transformer/"
     else:
         raise ValueError("Model type is not recognized")
+
     # 1. Threshold probabilities to get binary predictions (0 or 1)
-    threshold = 0.5
-    preds = (probs > threshold).astype(int)
+    # threshold = 0.5
+    thresholds_vector = [0.4, 0.35, 0.3, 0.25, 0.3, 0.35, 0.3, 0.45, 0.25, 0.35, 0.4, 0.3, 0.35, 0.2]
 
-    print("\n" + "="*30)
-    print("MODEL EVALUATION REPORT")
-    print("="*30)
+    preds = (probs > thresholds_vector).int()   # ONE LINE
+    print(preds)
 
-    # 2. Classification Report (Precision, Recall, F1 per class)
-    # zero_division=0 handles classes that might not be present in the test set
-    report = classification_report(labels, preds, target_names=CLASS_NAMES, zero_division=0)
-    print(report)
 
-    # 3. ROC AUC Score (Macro average)
-    try:
-        roc_score = roc_auc_score(labels, probs, average='macro')
-        print(f"\nMacro Average ROC AUC: {roc_score:.4f}")
-    except ValueError:
-        print("\nROC AUC could not be calculated (likely missing positive samples for a class in test set).")
+    # write to text file
+    with open(f'{path}{config.MODEL_NAME}.txt', 'w') as file:
+        txt = ''
+        txt += "\n" + "="*30
+        txt += "\nMODEL EVALUATION REPORT\n"
+        txt += "="*30 + "\n"
+        # 2. Classification Report (Precision, Recall, F1 per class)
+        # zero_division=0 handles classes that might not be present in the test set
+        report = classification_report(labels, preds, target_names=CLASS_NAMES, zero_division=0)
+        txt += report
+        # 3. ROC AUC Score (Macro average)
+        try:
+            roc_score = roc_auc_score(labels, probs, average='macro')
+            txt += f"\nMacro Average ROC AUC: {roc_score:.4f}"
+        except ValueError:
+            txt += "\nROC AUC could not be calculated (likely missing positive samples for a class in test set)."
+        print(txt)
+        file.write(txt)
 
     # 4. Plot Training/Validation Loss Curve
     if train_losses and val_losses:
