@@ -37,9 +37,9 @@ train_data = ImageDataset(ids_to_images(train_patients, labels_df, config.NUM_FO
 val_data = ImageDataset(ids_to_images(val_patients, labels_df, config.NUM_FOLDERS))
 test_data = ImageDataset(ids_to_images(test_patients, labels_df, config.NUM_FOLDERS))
 
-train_loader = DataLoader(train_data, batch_size=config.BATCH_SIZE, shuffle=True)
-val_loader = DataLoader(val_data, batch_size=config.BATCH_SIZE)
-test_loader = DataLoader(test_data, batch_size=config.BATCH_SIZE)
+train_loader = DataLoader(train_data, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=8, pin_memory=True)
+val_loader = DataLoader(val_data, batch_size=config.BATCH_SIZE, num_workers=4, pin_memory=True)
+test_loader = DataLoader(test_data, batch_size=config.BATCH_SIZE, num_workers=4, pin_memory=True)
 
 # Choose model based on config.py
 if config.MODEL == config.RESNET:

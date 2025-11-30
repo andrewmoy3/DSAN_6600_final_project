@@ -1,4 +1,5 @@
 import os
+import time
 import torch 
 import torch.nn as nn
 import config
@@ -7,6 +8,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import classification_report, multilabel_confusion_matrix, roc_auc_score
+
+from torch.cuda.amp import autocast, GradScaler
+
+scaler = GradScaler()
 
 # Define class names explicitly for plotting/reporting
 CLASS_NAMES = ["Atelectasis", "Consolidation", "Infiltration", "Pneumothorax", "Edema", 
@@ -17,6 +22,12 @@ def train_model(model, train_loader, val_loader, num_epochs=5, lr=1e-4):
     # Store loss history for plotting
     train_losses = []
     val_losses = []
+
+    # use GPU
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # model = model.to(device)
+    model = model.to(device, memory_format=torch.channels_last)
+
 
     def validation_loss():
         model.eval()
@@ -31,32 +42,48 @@ def train_model(model, train_loader, val_loader, num_epochs=5, lr=1e-4):
         val_loss /= len(val_loader.dataset)
         return val_loss
 
-    # use GPU
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = model.to(device)
-
     criterion = nn.BCEWithLogitsLoss()     # multi-label
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=config.WEIGHT_DECAY)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
 
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0
 
         for imgs, labels in tqdm(train_loader, desc=f"Training Epoch {epoch+1}"):
-            imgs, labels = imgs.to(device), labels.to(device)
+            # imgs, labels = imgs.to(device), labels.to(device)
+            imgs = imgs.to(device, memory_format=torch.channels_last)
+            labels = labels.to(device)
 
+            # start = time.time()
             optimizer.zero_grad()
-            outputs = model(imgs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
+            with autocast():
+                outputs = model(imgs)
+                loss = criterion(outputs, labels)
+            # outputs = model(imgs)
+            # loss = criterion(outputs, labels)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            # loss.backward()
+            # optimizer.step()
             total_loss += loss.item() * imgs.size(0)
+            # end = time.time()
+            # print(f"Batch training time: {end - start:.4f} seconds")
+            # total_loss += loss.detach().cpu().item()
 
         avg_loss = total_loss / len(train_loader.dataset)
         
         # Calculate Validation Loss
+        start = time.time()
         val_loss = validation_loss()
+        end = time.time()
+        print(f"Validation time: {end - start:.4f} seconds")
+
+        # return if val loss increases
+        if epoch > 0 and val_loss > val_losses[-1]:
+            print("Stopping early, validation loss increased.")
+            break
         
         # Store history
         train_losses.append(avg_loss)
@@ -186,10 +213,10 @@ def model_statistics(probs, labels, train_losses=None, val_losses=None):
     model_type = config.MODEL
 
     # make sure folders exist
-    os.makedirs("parameters/resnet/", exist_ok=True)
-    os.makedirs("parameters/imagenet/", exist_ok=True)
-    os.makedirs("parameters/custom_cnn/", exist_ok=True)
-    os.makedirs("parameters/custom_transformer/", exist_ok=True)
+    os.makedirs("plots/resnet/", exist_ok=True)
+    os.makedirs("plots/imagenet/", exist_ok=True)
+    os.makedirs("plots/custom_cnn/", exist_ok=True)
+    os.makedirs("plots/custom_transformer/", exist_ok=True)
 
     if model_type == config.RESNET:
         path = "plots/resnet/"

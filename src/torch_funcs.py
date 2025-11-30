@@ -14,7 +14,7 @@ class ImageDataset(Dataset):
     def __init__(self, data):
         self.data = data
         self.transform = T.Compose([
-            T.Resize((224, 224)),
+            # T.Resize((224, 224)),
             T.ToTensor(),
             T.Normalize(mean=[0.485, 0.456, 0.406],
                         std=[0.229, 0.224, 0.225])
@@ -22,7 +22,7 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path, label = self.data[idx]
-        image = Image.open(img_path).convert("RGB")
+        image = Image.open(img_path)
         image_tensor = self.transform(image)
         return image_tensor, torch.tensor(label, dtype=torch.float32)
 
@@ -40,14 +40,15 @@ class CNN(nn.Module):
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1, stride=2), # added stride to reduce size
             nn.ReLU(),
-            nn.MaxPool2d(2, 2)
+            nn.MaxPool2d(2, 2),
+            nn.MaxPool2d(2, 2) #another max pool to decrease num params
         )
-        # Calculate flattened size: 224 -> 112 -> 56 -> 28
+        # Calculate flattened size: 224 -> 112 -> 56 -> 28 -> 14 -> 7
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(128 * 28 * 28, 512),
+            nn.Linear(128 * 7 * 7, 512),
             nn.ReLU(),
             nn.Linear(512, num_classes)
         )
