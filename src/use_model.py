@@ -1,21 +1,19 @@
 import pandas as pd
-import numpy as np
 import os
 import random
 import config
 from torch_funcs import ImageDataset
 import torch
+import numpy as np
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import time
 
-from torch_funcs import make_resnet, make_vit, CNN
+from torch_funcs import make_resnet, make_vit
 from model_funcs import train_model, evaluate_model, save_model_parameters, load_model_parameters, model_statistics
 from process_data import get_labels, label_string_to_multi_hot, get_num_patients_images, ids_to_images, get_pos_weights
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
-###############################
-# NOTE: When processing data, "Data_Entry_2017_v2020.csv" is treated as the ground truth. It is assumed that the image folders contain all the images listed in the CSV, and no others.
-###############################
 
 labels_df = get_labels() # DataFrame with all relevant columns
 
@@ -45,49 +43,20 @@ train_loader = DataLoader(train_data, batch_size=config.BATCH_SIZE, shuffle=True
 val_loader = DataLoader(val_data, batch_size=config.BATCH_SIZE, num_workers=4, pin_memory=True)
 test_loader = DataLoader(test_data, batch_size=config.BATCH_SIZE, num_workers=4, pin_memory=True)
 
-# Choose model based on config.py
-if config.MODEL == config.RESNET:
-    print("Using ResNet model")
-    model = make_resnet(config.NUM_CLASSES)
-elif config.MODEL == config.IMAGENET:
-    print("Using ImageNet model")
-    model = make_vit(config.NUM_CLASSES)    
-elif config.MODEL == config.CUSTOM_CNN:
-    print("Using Custom CNN model")
-    model = CNN(14)
-    pass   
-elif config.MODEL == config.CUSTOM_TRANS:
-    print("Using Custom Transformer model")
-    # to be implemented
-    pass
+start = time.time()
+model = load_model_parameters(config.MODEL, config.MODEL_NAME)
+model = model.to(device)
+end = time.time()
+print(f"Model loaded in {end - start:.2f} seconds")
 
-# ----------------- UPDATED TRAINING CALL -----------------
-print("Starting Training...")
-model, train_losses, val_losses = train_model(
-    model, 
-    train_loader, 
-    val_loader, 
-    pos_weight_tensor,
-    num_epochs=config.NUM_EPOCHS, 
-    lr=config.LEARNING_RATE
-)
-
-# Save trained model parameters
-save_model_parameters(model)
-
-# Get predicted probabiities and true labels on test set
-print("Evaluating on Test Set...")
 probs, test_labels = evaluate_model(model, test_loader)
 
-# ----------------- UPDATED STATISTICS CALL -----------------
-# Now passing the loss histories
-
-from sklearn.metrics import roc_curve, precision_recall_curve, f1_score
-import matplotlib.pyplot as plt
-
 val_labels = []
-val_probs = []
+val_probs = []    
 
+from sklearn.metrics import precision_recall_curve, roc_curve, f1_score
+
+start = time.time()
 model.eval()
 with torch.no_grad():
     for imgs, labels in val_loader:
@@ -102,13 +71,35 @@ with torch.no_grad():
 val_labels = np.array(val_labels)
 val_probs = np.array(val_probs)
 
-# thresholds = []
-# for i in range(14):
-#     fpr, tpr, thr = roc_curve(val_labels[:, i], val_probs[:, i])
-#     j = tpr - fpr
-#     best = thr[j.argmax()]
-#     thresholds.append(best)
-# thresholds_vector = [0.2] * 14
+end = time.time()
+print(f"Validation predictions generated in {end - start:.2f} seconds")
+
+for i in range(14):
+    print(i)
+    y_true = val_labels[:, i]
+    y_prob = val_probs[:, i]
+
+    precision, recall, pr_thresholds = precision_recall_curve(y_true, y_prob)
+
+    plt.figure(figsize=(7,5))
+    plt.plot(recall, precision)
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title(f"PR Curve – Class {i}")
+    plt.grid(True)
+    plt.show()
+
+    fpr, tpr, roc_thresholds = roc_curve(y_true, y_prob)
+
+    plt.figure(figsize=(7,5))
+    plt.plot(fpr, tpr)
+    plt.plot([0,1], [0,1], '--', color='gray')
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate (Recall)")
+    plt.title(f"ROC Curve – Class {i}")
+    plt.grid(True)
+    plt.show()
+
 def best_threshold(y_true, y_prob):
     ts = np.linspace(0.01, 0.99, 200)
     f1s = []
@@ -118,7 +109,6 @@ def best_threshold(y_true, y_prob):
     best_idx = np.argmax(f1s)
     return ts[best_idx], f1s[best_idx]
 
-    
 thresholds = []
 for i in range(14):
     t, f1 = best_threshold(val_labels[:, i], val_probs[:, i])
@@ -128,6 +118,4 @@ for i in range(14):
 thresholds = np.array(thresholds)
 print("Best thresholds based on F1 score:")
 print(thresholds)
-stats = model_statistics(probs, test_labels, thresholds, train_losses, val_losses)
-
-
+stats = model_statistics(probs, test_labels, thresholds, save=False)

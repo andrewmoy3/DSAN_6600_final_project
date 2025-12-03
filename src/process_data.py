@@ -1,4 +1,5 @@
 import pandas as pd
+import config
 import time
 import os
 import numpy as np
@@ -91,8 +92,15 @@ def ids_to_images(ids, labels_df, num_image_folders):
         if img_name in image_path_map:
             full_path = image_path_map[img_name]
             label = label_string_to_multi_hot(label_str)
+            if config.DATA_AUGMENT:
+                # assume same filename in folder + 12
+                folder_num = int(full_path.split('/')[2].split('_')[1])
+                aug_folder_num = folder_num + 12
+                aug_full_path = full_path.replace(f'images_{folder_num:03d}', f'images_{aug_folder_num:03d}')
+                # append augmented image with the same label
+                data.append((aug_full_path, label))
             data.append((full_path, label))
-            
+
     return data
 
 def get_pos_weights(df):

@@ -10,62 +10,16 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import classification_report, multilabel_confusion_matrix, roc_auc_score
 
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
+from torch_funcs import make_resnet, make_vit
 
-scaler = GradScaler()
+scaler = GradScaler('cuda')
 
 # Define class names explicitly for plotting/reporting
 CLASS_NAMES = ["Atelectasis", "Consolidation", "Infiltration", "Pneumothorax", "Edema", 
                "Emphysema", "Fibrosis", "Effusion", "Pneumonia", "Pleural_Thickening", 
                "Cardiomegaly", "Nodule", "Mass", "Hernia"]
 
-class FocalLoss(nn.Module):
-    def __init__(self, alpha=0.25, gamma=2.0, reduction='mean'):
-        """
-        Multi-label Focal Loss for sigmoid outputs.
-        Args:
-            alpha (float): balancing factor for positives (default 0.25)
-            gamma (float): focusing parameter (default 2)
-            reduction: 'none' | 'mean' | 'sum'
-        """
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
-
-    def forward(self, logits, targets):
-        """
-        logits: raw model outputs of shape (batch, num_classes)
-        targets: binary multi-hot labels of same shape
-        """
-        # Sigmoid + CE but computed manually for numerical stability
-        bce_loss = F.binary_cross_entropy_with_logits(
-            logits,
-            targets,
-            reduction='none'
-        )
-
-        # convert logits to probability
-        prob = torch.sigmoid(logits)
-
-        # p_t = p if y=1 else (1-p)
-        pt = prob * targets + (1 - prob) * (1 - targets)
-
-        # focal term
-        focal_weight = (1 - pt) ** self.gamma
-
-        # alpha balancing
-        alpha_weight = self.alpha * targets + (1 - self.alpha) * (1 - targets)
-
-        # final loss
-        loss = alpha_weight * focal_weight * bce_loss
-
-        if self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
-        return loss
-    
 def train_model(model, train_loader, val_loader, pos_weight_tensor, num_epochs=5, lr=1e-4):
     # Store loss history for plotting
     train_losses = []
@@ -81,19 +35,22 @@ def train_model(model, train_loader, val_loader, pos_weight_tensor, num_epochs=5
     def validation_loss():
         model.eval()
         val_loss = 0
+        tests = [0] * 14
         with torch.no_grad():
             for imgs, labels in val_loader:
                 imgs, labels = imgs.to(device), labels.to(device)
                 outputs = model(imgs)
                 loss = criterion(outputs, labels)
                 val_loss += loss.item() * imgs.size(0)
+            
+        print(tests)
 
         val_loss /= len(val_loader.dataset)
         return val_loss
     
-    criterion = FocalLoss(gamma=2, alpha=0.25)
+    # criterion = FocalLoss(gamma=2, alpha=0.25)
     # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor)     # multi-label
-    # criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=config.WEIGHT_DECAY)
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
 
@@ -108,16 +65,16 @@ def train_model(model, train_loader, val_loader, pos_weight_tensor, num_epochs=5
 
             # start = time.time()
             optimizer.zero_grad()
-            with autocast():
-                outputs = model(imgs)
-                loss = criterion(outputs, labels)
-            # outputs = model(imgs)
-            # loss = criterion(outputs, labels)
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-            # loss.backward()
-            # optimizer.step()
+            # with autocast('cuda'):
+                # outputs = model(imgs)
+                # loss = criterion(outputs, labels)
+            outputs = model(imgs)
+            loss = criterion(outputs, labels)
+            # scaler.scale(loss).backward()
+            # scaler.step(optimizer)
+            # scaler.update()
+            loss.backward()
+            optimizer.step()
             total_loss += loss.item() * imgs.size(0)
             # end = time.time()
             # print(f"Batch training time: {end - start:.4f} seconds")
@@ -181,21 +138,22 @@ def evaluate_model(model, test_loader):
 
     return all_probs, all_labels
 
-def load_model_parameters(model, model_type, filename):
+def load_model_parameters(model_type, filename):
     """ 
     Load pre-trained model parameters into the given model based on which model it is. 
 
     Use a predefined filename
 
     Argument: 
-    - model: Untrained PyTorch model
     - model_type: One of config.RESNET, config.IMAGENET, config.CUSTOM_CNN, config.CUSTOM_TRANS
     - filename: String filename to load the parameters from 
     Returns: Pytorch model with loaded parameters
     """
     if model_type == config.RESNET:
+        model = make_resnet(config.NUM_CLASSES)
         path = "parameters/resnet/"
     elif model_type == config.IMAGENET:
+        model = make_vit(config.NUM_CLASSES)
         path = "parameters/imagenet/"
     elif model_type == config.CUSTOM_CNN:
         path = "parameters/custom_cnn/"
@@ -252,7 +210,7 @@ def save_model_parameters(model):
 
 from sklearn.metrics import roc_auc_score, accuracy_score
 
-def model_statistics(probs, labels, thresholds_vector, train_losses=None, val_losses=None):
+def model_statistics(probs, labels, thresholds_vector, train_losses=None, val_losses=None, save=True):
     """
     Computes detailed statistics and saves plots.
     
@@ -281,6 +239,15 @@ def model_statistics(probs, labels, thresholds_vector, train_losses=None, val_lo
     else:
         raise ValueError("Model type is not recognized")
 
+    full_path = path + config.MODEL_NAME
+
+    # if file already exists, ask for confirmation to overwrite
+    if os.path.exists(full_path):
+        response = input(f"File {full_path} already exists. Overwrite? You can choose another filename if n is selected (y/n): ")
+        if response.lower() != 'y':
+            new_filename = input("Enter new filename (without extension): ")
+            full_path = path + new_filename 
+
     # 1. Threshold probabilities to get binary predictions (0 or 1)
     # threshold = 0.5
     # thresholds_vector = [0.4, 0.35, 0.3, 0.25, 0.3, 0.35, 0.3, 0.45, 0.25, 0.35, 0.4, 0.3, 0.35, 0.2]
@@ -288,23 +255,24 @@ def model_statistics(probs, labels, thresholds_vector, train_losses=None, val_lo
     preds = (probs > thresholds_vector)
 
     # write to text file
-    with open(f'{path}{config.MODEL_NAME}.txt', 'w') as file:
-        txt = ''
-        txt += "\n" + "="*30
-        txt += "\nMODEL EVALUATION REPORT\n"
-        txt += "="*30 + "\n"
-        # 2. Classification Report (Precision, Recall, F1 per class)
-        # zero_division=0 handles classes that might not be present in the test set
-        report = classification_report(labels, preds, target_names=CLASS_NAMES, zero_division=0)
-        txt += report
-        # 3. ROC AUC Score (Macro average)
-        try:
-            roc_score = roc_auc_score(labels, probs, average='macro')
-            txt += f"\nMacro Average ROC AUC: {roc_score:.4f}"
-        except ValueError:
-            txt += "\nROC AUC could not be calculated (likely missing positive samples for a class in test set)."
-        print(txt)
-        file.write(txt)
+    txt = ''
+    txt += "\n" + "="*30
+    txt += "\nMODEL EVALUATION REPORT\n"
+    txt += "="*30 + "\n"
+    # 2. Classification Report (Precision, Recall, F1 per class)
+    # zero_division=0 handles classes that might not be present in the test set
+    report = classification_report(labels, preds, target_names=CLASS_NAMES, zero_division=0)
+    txt += report
+    # 3. ROC AUC Score (Macro average)
+    try:
+        roc_score = roc_auc_score(labels, probs, average='macro')
+        txt += f"\nMacro Average ROC AUC: {roc_score:.4f}"
+    except ValueError:
+        txt += "\nROC AUC could not be calculated (likely missing positive samples for a class in test set)."
+    print(txt)
+    if save:
+        with open(f'{full_path}.txt', 'w') as file:
+            file.write(txt)
 
     # 4. Plot Training/Validation Loss Curve
     if train_losses and val_losses:
@@ -316,8 +284,8 @@ def model_statistics(probs, labels, thresholds_vector, train_losses=None, val_lo
         plt.ylabel('Loss (BCE)')
         plt.legend()
         plt.grid(True)
-        plt.savefig(path + config.MODEL_NAME + '_training_loss_curve.png')
-        print(f"Saved loss curve to '{path + config.MODEL_NAME + '_training_loss_curve.png'}'")
+        plt.savefig(full_path + '_training_loss_curve.png')
+        print(f"Saved loss curve to '{full_path + '_training_loss_curve.png'}'")
         plt.close()
 
     # 5. Multi-label Confusion Matrix
@@ -342,8 +310,8 @@ def model_statistics(probs, labels, thresholds_vector, train_losses=None, val_lo
             ax.axis('off') # Hide extra subplots
 
     plt.tight_layout()
-    plt.savefig(path + config.MODEL_NAME + '_confusion_matrices.png')
-    print(f"Saved confusion matrices to '{path + config.MODEL_NAME + '_confusion_matrices.png'}'")
+    plt.savefig(full_path + '_confusion_matrices.png')
+    print(f"Saved confusion matrices to '{full_path + '_confusion_matrices.png'}'")
     plt.close() 
     
     return preds

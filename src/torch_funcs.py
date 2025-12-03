@@ -80,5 +80,16 @@ def make_resnet(num_classes):
 
 def make_vit(num_classes):
     model = vit_b_16(weights="IMAGENET1K_V1")
+
+    for param in model.parameters():
+        param.requires_grad = False
+
+    for param in model.heads.head.parameters():
+        param.requires_grad = True
+
+    for param in model.encoder.layers[-1].parameters():
+        param.requires_grad = True
+
     model.heads.head = nn.Linear(model.heads.head.in_features, num_classes)
+    
     return model
