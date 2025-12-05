@@ -4,6 +4,30 @@ import time
 import os
 import numpy as np
 import torch
+from torch.utils.data import Dataset
+import torchvision.transforms as T
+from PIL import Image
+
+# have to define our own dataset class that inherits from PyTorch Dataset
+class ImageDataset(Dataset):
+    # data = list of tuples (filename, multi-hot label)
+    def __init__(self, data):
+        self.data = data
+        self.transform = T.Compose([
+            # T.Resize((224, 224)),
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406],
+                        std=[0.229, 0.224, 0.225])
+        ])
+
+    def __getitem__(self, idx):
+        img_path, label = self.data[idx]
+        image = Image.open(img_path)
+        image_tensor = self.transform(image)
+        return image_tensor, torch.tensor(label, dtype=torch.float32)
+
+    def __len__(self):
+        return len(self.data)
 
 def get_labels():
     """

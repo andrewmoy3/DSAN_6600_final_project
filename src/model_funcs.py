@@ -11,7 +11,7 @@ import seaborn as sns
 from sklearn.metrics import classification_report, multilabel_confusion_matrix, roc_auc_score
 
 from torch.amp import autocast, GradScaler
-from torch_funcs import make_resnet, make_vit
+from architectures import make_resnet, make_vit
 
 scaler = GradScaler('cuda')
 
@@ -160,7 +160,10 @@ def load_model_parameters(model_type, filename):
     elif model_type == config.CUSTOM_TRANS:
         path = "parameters/custom_transformer/"
     else:
-        raise ValueError("Model type is not recognized")
+        return None
+
+    if not os.path.exists(path + filename + ".pth"):
+        return None
 
     model.load_state_dict(torch.load(path + filename + ".pth"))
     return model
