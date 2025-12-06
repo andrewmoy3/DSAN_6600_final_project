@@ -21,6 +21,8 @@ class ImageDataset(Dataset):
         ])
 
     def __getitem__(self, idx):
+        # Return tensor of pixel values of image
+        # Return multi-hot label of image disease as tensor
         img_path, label = self.data[idx]
         image = Image.open(img_path)
         image_tensor = self.transform(image)
