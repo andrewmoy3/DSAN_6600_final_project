@@ -1,6 +1,35 @@
 import pandas as pd
+import config
 import time
 import os
+import numpy as np
+import torch
+from torch.utils.data import Dataset
+import torchvision.transforms as T
+from PIL import Image
+
+# have to define our own dataset class that inherits from PyTorch Dataset
+class ImageDataset(Dataset):
+    # data = list of tuples (filename, multi-hot label)
+    def __init__(self, data):
+        self.data = data
+        self.transform = T.Compose([
+            # T.Resize((224, 224)),
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406],
+                        std=[0.229, 0.224, 0.225])
+        ])
+
+    def __getitem__(self, idx):
+        # Return tensor of pixel values of image
+        # Return multi-hot label of image disease as tensor
+        img_path, label = self.data[idx]
+        image = Image.open(img_path)
+        image_tensor = self.transform(image)
+        return image_tensor, torch.tensor(label, dtype=torch.float32)
+
+    def __len__(self):
+        return len(self.data)
 
 def get_labels():
     """
@@ -89,8 +118,43 @@ def ids_to_images(ids, labels_df, num_image_folders):
         if img_name in image_path_map:
             full_path = image_path_map[img_name]
             label = label_string_to_multi_hot(label_str)
+            if config.DATA_AUGMENT:
+                # assume same filename in folder + 12
+                folder_num = int(full_path.split('/')[2].split('_')[1])
+                aug_folder_num = folder_num + 12
+                aug_full_path = full_path.replace(f'images_{folder_num:03d}', f'images_{aug_folder_num:03d}')
+                # append augmented image with the same label
+                data.append((aug_full_path, label))
             data.append((full_path, label))
-            
+
     return data
 
+def get_pos_weights(df):
+    """
+    Get a torch tensor for the 14 diseases
+    Each disease is represented by a value, the number of negatives / the number of positives
+    Used to amplify importance of rare diseases and reduce false negatives
+    """
+    label_counts = [0] * 14    
+    for label in df["Finding Labels"]:
+        ohe_label = label_string_to_multi_hot(label)
+        for i in range(14):
+            label_counts[i] += ohe_label[i]
+    total = len(df)
     
+    label_counts = np.array(label_counts, dtype=float)
+    neg_counts = total - label_counts
+    pos_weights = neg_counts / label_counts
+
+    # take sqrt to soften
+    # pos_weights = np.sqrt(pos_weights)
+    
+    # take log
+    pos_weights = np.log(pos_weights)
+
+    pos_weight_tensor = torch.tensor(
+        pos_weights, 
+        dtype=torch.float32,
+    )
+
+    return pos_weight_tensor

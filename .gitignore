@@ -1,3 +1,6 @@
 data/
+parameters/
 .DS_Store
 __pycache__
+
+src/test.py
