@@ -2,18 +2,18 @@
 
 **Authors:** Andrew Moy, Samuel Villarreal & Xiao Xu
 **Course:** DSAN-6600 — Fall 2025  
-**Instructors:** Dr. Hickman & Benjamin Houghton  
+**Instructors:** Dr. James Hickman & Benjamin Houghton  
 **Date:** December 8, 2025
 
 ---
 
 ## **Introduction**
 
-With the rapid advancement of technology, the healthcare industry has been able to capture and analyze more data than ever before. Among imaging modalities, X-rays remain one of the most widely used diagnostic tools, utilizing high-energy electromagnetic radiation that penetrates tissue at varying degrees. This allows clinicians to visualize internal anatomical structures, particularly dense regions such as bone, and identify conditions like fractures, infections, and pulmonary abnormalities without invasive procedures.
+With the rapid advancement of technology, the healthcare industry has been able to capture and analyze more data than ever before. Among imaging modalities, X-rays remain one of the most widely used diagnostic tools, utilizing high-energy electromagnetic radiation that penetrates tissue at varying degrees without a harmful intervention to the human body. This allows healthcare professionals and staff to visualize internal anatomical structures, particularly dense regions such as bone, and identify conditions like fractures, infections, and pulmonary abnormalities. 
 
-Modern hospitals nowadays collect large thoracic imaging data. With the progress of machine learning and deep learning architectures, these datasets can be leveraged to automate the detection and classification of thoracic diseases, significantly improving efficiency and faster clinical decision-making.
+Modern hospitals nowadays collectively gather large thoracic imaging data every day. With the progress of machine learning and deep learning architectures, these datasets can be leveraged to automate the detection and classification of thoracic diseases, significantly improving efficiency and faster clinical decision-making.
 
-This project analyzesa total of 108,948 frontal-view chest X-ray images from 32,717 unique patients, provided by the U.S. National Institutes of Health (NIH), to classify the following 14 common thoracic findings:
+This project analyzesa total of 112,120 frontal-view chest X-ray images from 30,805 unique patients, provided by the U.S. National Institutes of Health (NIH), to classify the following 14 common thoracic findings:
 
 1. Atelectasis
 2. Consolidation
@@ -30,13 +30,13 @@ This project analyzesa total of 108,948 frontal-view chest X-ray images from 32,
 13. Pneumonia
 14. Pneumothorax
 
-For reference, Pneumonia alone accounted for 41,210 deaths in the United States in 2023, corresponding to a mortality rate of 12.3 deaths per 100,000 people, according to the Centers for Disease Control and Prevention.
+For reference, most of the available information on the web and from health organization sources, collectively estimate that thoracic diseases account for around 3.1 million deaths annually in the United States alone, representing about one-third of all deaths nationwide. 
 
 ---
 
 ## **Project Objective**
 
-The goal of this project is to develop a well-documented Python framework that applies advanced deep learning models to accurately classify the aforementioned thoracic conditions. We evaluate and compare Convolutional Neural Networks (CNNs) and Transformer-based architectures to determine the most effective model for this task.
+The objective of this project is to develop a well-documented Python framework that applies advanced deep learning models to accurately classify the aforementioned thoracic conditions. We evaluate and compare Convolutional Neural Networks (CNNs) and Transformer-based architectures to determine the most effective approach for this task. The resulting tool is designed to support researchers and healthcare professionals by providing a free, accessible, and adaptable open-source model for identifying common thoracic findings from chest X-ray images.
 
 ---
 
@@ -119,3 +119,9 @@ This file contains various functions for loading and splitting the images and de
     4. `ids_to_images(ids, labels_df, num_image_folders)`: Returns the image paths and multi-hot labels for a list of image IDs.
 
     5. `get_pos_weights()`: Calculates and returns the positive weights for each disease class to address class imbalance.
+
+---
+
+## Findings & Report 
+
+For more information on our study methodology, architecture, findings, and interpretations, please refer to our report PDF file included in this repository. 
