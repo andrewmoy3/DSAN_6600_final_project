@@ -21,64 +21,71 @@ CLASS_NAMES = ["Atelectasis", "Consolidation", "Infiltration", "Pneumothorax", "
                "Cardiomegaly", "Nodule", "Mass", "Hernia"]
 
 def train_model(model, train_loader, val_loader, pos_weight_tensor, num_epochs=5, lr=1e-4):
+    """
+    Trains the model using the training dataset and validates on the validation dataset.
+
+    Arguments:
+    - model: Trained PyTorch model
+    - train_loader: DataLoader for the train dataset 
+    - val_loader: DataLoader for the validation dataset
+    - pos_weight_tensor: Tensor of positive weights for each class to handle class imbalance
+    - num_epochs: Number of epochs to train
+    - lr: Learning rate for the optimizer
+
+    Returns: Trained model
+    - model : Trained PyTorch model
+    - train_losses : List of training losses per epoch
+    - val_losses : List of validation losses per epoch
+    """
     # Store loss history for plotting
     train_losses = []
     val_losses = []
 
     # use GPU
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    # model = model.to(device)
     model = model.to(device, memory_format=torch.channels_last)
     pos_weight_tensor = pos_weight_tensor.to(device)
-
 
     def validation_loss():
         model.eval()
         val_loss = 0
-        tests = [0] * 14
         with torch.no_grad():
             for imgs, labels in val_loader:
                 imgs, labels = imgs.to(device), labels.to(device)
                 outputs = model(imgs)
                 loss = criterion(outputs, labels)
                 val_loss += loss.item() * imgs.size(0)
-            
-        print(tests)
 
         val_loss /= len(val_loader.dataset)
         return val_loss
     
-    # criterion = FocalLoss(gamma=2, alpha=0.25)
-    # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor)     # multi-label
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor)     # multi-label
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=config.WEIGHT_DECAY)
-    # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
 
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0
 
         for imgs, labels in tqdm(train_loader, desc=f"Training Epoch {epoch+1}"):
-            # imgs, labels = imgs.to(device), labels.to(device)
             imgs = imgs.to(device, memory_format=torch.channels_last)
             labels = labels.to(device)
 
-            # start = time.time()
             optimizer.zero_grad()
+            outputs = model(imgs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            # ---------- Mixed precision ----------
+            # optimizer.zero_grad()
             # with autocast('cuda'):
                 # outputs = model(imgs)
                 # loss = criterion(outputs, labels)
-            outputs = model(imgs)
-            loss = criterion(outputs, labels)
             # scaler.scale(loss).backward()
             # scaler.step(optimizer)
             # scaler.update()
-            loss.backward()
-            optimizer.step()
+            
             total_loss += loss.item() * imgs.size(0)
-            # end = time.time()
-            # print(f"Batch training time: {end - start:.4f} seconds")
-            # total_loss += loss.detach().cpu().item()
 
         avg_loss = total_loss / len(train_loader.dataset)
         
@@ -142,12 +149,13 @@ def load_model_parameters(model_type, filename):
     """ 
     Load pre-trained model parameters into the given model based on which model it is. 
 
-    Use a predefined filename
+    Use a predefined filename from config file
 
     Argument: 
     - model_type: One of config.RESNET, config.IMAGENET, config.CUSTOM_CNN, config.CUSTOM_TRANS
     - filename: String filename to load the parameters from 
-    Returns: Pytorch model with loaded parameters
+
+    Returns: Pytorch model with loaded parameters, None if file does not exist
     """
     if model_type == config.RESNET:
         model = make_resnet(config.NUM_CLASSES)
@@ -172,12 +180,10 @@ def save_model_parameters(model):
     """ 
     Save a trained model parameters into appropriate folders based on which model it is. 
 
-    Use a predefined filename
+    Use a predefined filename from config file
 
     Argument: 
     - model: Trained PyTorch model
-    - model_type: One of config.RESNET, config.IMAGENET, config.CUSTOM_CNN, config.CUSTOM_TRANS
-    - filename: String filename to save the parameters as
 
     Returns: None
     """
@@ -220,8 +226,10 @@ def model_statistics(probs, labels, thresholds_vector, train_losses=None, val_lo
     Arguments:
     - probs: Predicted probabilities (numpy array)
     - labels: True labels (numpy array)
+    - thresholds_vector: List of individual thresholds for each class
     - train_losses: List of training losses per epoch
     - val_losses: List of validation losses per epoch
+    - save: Boolean indicating whether to save the report and plots to files
     """
     model_type = config.MODEL
 
